@@ -80,12 +80,16 @@ app.use(redirectLoggedOutUserToLogin);
 app.postUse(showFile);
 
 app.get('/guestBook.html',(req,res)=>{
+  console.log(req.user.userName);
   res.setHeader('Content-type','text/html');
-  res.write(getFileContent('./guestBook.html'));
+  let guestBookFile = getFileContent('./guestBook.html').toString('utf8');
+  guestBookFile = guestBookFile.replace('>username',`>${req.user.userName}`);
+  res.write(guestBookFile);
   res.end();
 });
 
 app.get('/logout',(req,res)=>{
+  res.setHeader('Set-Cookie',[`sessionid=0,Expires=${new Date(1).toUTCString()}`]);
   delete req.user.sessionid;
   res.redirect('/index.html');
 });

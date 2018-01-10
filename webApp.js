@@ -4,6 +4,7 @@ const toKeyValue = kv=>{
     let parts = kv.split('=');
     return {key:parts[0].trim(),value:parts[1].trim()};
 };
+
 const accumulate = (o,kv)=> {
   o[kv.key] = kv.value;
   return o;
@@ -31,13 +32,6 @@ let invoke = function(req,res){
   handler(req,res);
 }
 
-// let notFound = function(res) {
-//   res.statusCode = 404;
-//   res.write('File not found!');
-  // res.end();
-  // return;
-// }
-
 const initialize = function(){
   this._handlers = {GET:{},POST:{}};
   this._preprocess = [];
@@ -60,7 +54,6 @@ let urlIsOneOf = function(urls){
   return urls.includes(this.url);
 }
 const main = function(req,res){
-  // console.log(req.headers);
   res.redirect = redirect.bind(res);
   req.urlIsOneOf = urlIsOneOf.bind(req);
   req.cookies = parseCookies(req.headers.cookie||'');
@@ -69,7 +62,6 @@ const main = function(req,res){
   req.on('end',()=>{
     req.body = parseBody(content);
     content="";
-    // debugger;
     this._preprocess.forEach(middleware=>{
       if(res.finished) return;
       middleware(req,res);
