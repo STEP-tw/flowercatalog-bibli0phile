@@ -1,11 +1,11 @@
 let fs = require('fs');
 const http = require('http');
-// const getComments = require(comments.js).getComments;
 const timeStamp = require('./time.js').timeStamp;
 const WebApp = require('./webapp');
-const commentFile = fs.readFileSync('./data/comments.json')
 let registered_users = [{userName:'sayima'},{userName:'ishu'}];
 let toS = o=>JSON.stringify(o,null,2);
+let userComments = fs.readFileSync('./data/comments.json');
+userComments = JSON.parse(userComments);
 
 let contentTypes = {
   '.jpg': 'image/jpg',
@@ -13,7 +13,9 @@ let contentTypes = {
   '.gif':'image/gif',
   '.html': 'text/html',
   '.css': 'text/css',
-  '.js': 'text/javascript'
+  '.js': 'text/javascript',
+  '.txt': 'text/plain',
+  '.json':'application/json'
 }
 
 let loadUser = (req,res)=>{
@@ -23,13 +25,7 @@ let loadUser = (req,res)=>{
     req.user = user;
   }
 };
-let app = WebApp.create();
-let redirectLoggedInUserToHome = (req,res)=>{
-  if(req.urlIsOneOf(['/','/login']) && req.user) res.redirect('/guestBook.html');
-}
-let redirectLoggedOutUserToLogin = (req,res)=>{
-  if(req.urlIsOneOf(['/','/guestBook.html','/logout']) && !req.user) res.redirect('/login');
-}
+
 
 const isFile = function(filePath){
   try {
@@ -39,19 +35,6 @@ const isFile = function(filePath){
     return false;
   }
 }
-
-let logRequest = (req,res)=>{
-  let text = ['------------------------------',
-    `${timeStamp()}`,
-    `${req.method} ${req.url}`,
-    `HEADERS=> ${toS(req.headers)}`,
-    `COOKIES=> ${toS(req.cookies)}`,
-    `BODY=> ${toS(req.body)}`,''].join('\n');
-  fs.appendFile('request.log',text,()=>{});
-
-  console.log(`${req.method} ${req.url}`);
-}
-
 
 let showFile = (req,res)=>{
   let filePath = `public${req.url}`
@@ -67,33 +50,55 @@ let getFileContent = function(filePath) {
   return fs.readFileSync(filePath);
 }
 
+let app = WebApp.create();
+
+let redirectLoggedInUserToHome = (req,res)=>{
+  if(req.urlIsOneOf(['/','/login.html']) && req.user) res.redirect('/guestBook.html');
+}
+
+let redirectLoggedOutUserToLogin = (req,res)=>{
+  if(req.urlIsOneOf(['/','/guestBook.html','/logout']) && !req.user) res.redirect('/login.html');
+}
+
+let logRequest = (req,res)=>{
+  let text = ['------------------------------',
+    `${timeStamp()}`,
+    `${req.method} ${req.url}`,
+    `HEADERS=> ${toS(req.headers)}`,
+    `COOKIES=> ${toS(req.cookies)}`,
+    `BODY=> ${toS(req.body)}`,''].join('\n');
+  fs.appendFile('request.log',text,()=>{});
+  console.log(`${req.method} ${req.url}`);
+}
+
+
+
 app.use(logRequest)
 app.use(loadUser);
 app.use(redirectLoggedInUserToHome);
 app.use(redirectLoggedOutUserToLogin);
 app.postUse(showFile);
 
-app.get('/login',(req,res)=>{
+app.get('/guestBook.html',(req,res)=>{
   res.setHeader('Content-type','text/html');
-  res.write(getFileContent('./login.html'));
+  res.write(getFileContent('./guestBook.html'));
   res.end();
 });
 
-app.get('/comments.html',(req,res)=>{
-  let commentFile = getFileContent('./comments.html');
-  res.write(commentFile);
+app.get('/logout',(req,res)=>{
+  delete req.user.sessionid;
+  res.redirect('/index.html');
+});
+
+app.get('/comments',(req,res)=>{
+  res.write(JSON.stringify(userComments));
   res.end();
 })
 
-app.post('/comments.html',(req,res)=>{
-  res.redirect('/guestBook.html');
-  return;
-});
-
-app.post('/login',(req,res)=>{
+app.post('/login.html',(req,res)=>{
   let user = registered_users.find(u=>u.userName==req.body.userName);
   if(!user) {
-    res.redirect('/login');
+    res.redirect('/login.html');
     return;
   }
   let sessionid = new Date().getTime();
@@ -102,30 +107,19 @@ app.post('/login',(req,res)=>{
   res.redirect('/guestBook.html');
 });
 
-app.get('/guestBook.html',(req,res)=>{
-  res.setHeader('Content-type','text/html');
-  res.write(getFileContent('./guestBook.html'));
-  res.end();
-});
-
 app.post('/guestBook.html',(req,res)=>{
-  let comments= { name:req.user.userName,
+  let date = new Date();
+  let comments= { date: date.toLocaleString(),
+    name:req.user.userName,
     comment:req.body.comment
   }
-  let userComment = (JSON.parse(commentFile));
-  userComment.unshift(comments);
-  fs.writeFileSync('./data/comments.json',JSON.stringify(userComment));
-  res.redirect('/index.html');
+  userComments.unshift(comments);
+  fs.writeFile('./data/comments.json',JSON.stringify(userComments,null,2));
+  res.redirect('/comments.html');
   res.end();
 })
 
-app.get('/logout',(req,res)=>{
-  res.setHeader('Set-Cookie','');
-  delete req.user.sessionid;
-  res.redirect('/index.html');
-});
 
 const PORT = 5000;
 let server = http.createServer(app);
-// server.on('error',e=>console.error('**error**',e.message));
 server.listen(PORT,(e)=>console.log(`server listening at ${PORT}`));
